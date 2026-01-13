@@ -1,4 +1,4 @@
-// Mapeo solo para mostrar nombre del país
+// Mapeo: código de locale → nombre amigable
 const countryNames = {
   en: 'Estados Unidos',
   es: 'España',
@@ -17,8 +17,48 @@ const countryNames = {
   sv: 'Suecia'
 };
 
-// Cargar historial
+// Almacena la instancia actual de faker
+let currentFaker = null;
+let isLoading = false;
+
+// Historial
 let history = JSON.parse(localStorage.getItem('addressHistory')) || [];
+
+// Función para cargar un locale específico
+function loadLocale(locale) {
+  return new Promise((resolve, reject) => {
+    // Si ya está cargado (ej: window.fakerEs), usarlo
+    const globalName = `faker${locale.replace(/[^a-zA-Z0-9]/g, '')}`;
+    if (window[globalName]) {
+      currentFaker = window[globalName];
+      resolve();
+      return;
+    }
+
+    // Crear script
+    const script = document.createElement('script');
+    script.src = `https://cdn.jsdelivr.net/npm/@faker-js/faker@8.4.1/locale/${locale}.js`;
+    
+    script.onload = () => {
+      // Faker.js expone la librería como window[faker{Locale}]
+      // Ej: es → window.fakerEs, pt_BR → window.fakerPtBr
+      const varName = `faker${locale
+        .replace(/_[a-z]/g, match => match[1].toUpperCase())
+        .replace(/^[a-z]/, first => first.toUpperCase())
+      }`;
+      
+      if (window[varName]) {
+        currentFaker = window[varName];
+        resolve();
+      } else {
+        reject(new Error(`No se pudo cargar faker para ${locale}`));
+      }
+    };
+    
+    script.onerror = () => reject(new Error(`Error al cargar ${locale}`));
+    document.head.appendChild(script);
+  });
+}
 
 function safeCall(fn, fallback = '—') {
   try {
@@ -29,14 +69,22 @@ function safeCall(fn, fallback = '—') {
   }
 }
 
-function generateAddress() {
+async function generateAddress() {
   const locale = document.getElementById('countrySelect').value;
-
-  // NOTA: En Faker.js v8+, NO se puede cambiar el locale en runtime con faker.locale.
-  // Así que usaremos la instancia global (inglés), pero los formatos de dirección sí varían.
-  // Es un compromiso aceptable para una demo.
+  const btn = document.getElementById('generateBtn');
+  
+  if (isLoading) return;
+  
+  isLoading = true;
+  btn.disabled = true;
+  btn.textContent = 'Cargando...';
 
   try {
+    await loadLocale(locale);
+
+    const faker = currentFaker;
+    if (!faker) throw new Error('Faker no disponible');
+
     const street = safeCall(() => faker.location.streetAddress());
     const city = safeCall(() => faker.location.city());
     const state = safeCall(() => faker.location.state?.() || faker.location.province?.(), '—');
@@ -63,11 +111,23 @@ function generateAddress() {
     displayAddress(addressData);
     addToHistory(addressData);
   } catch (err) {
-    console.error('Error grave:', err);
+    console.error('Error:', err);
     document.getElementById('addressDetails').innerHTML = 
-      '<p class="text-red-600">⚠️ No se pudo generar la dirección. Prueba otro país.</p>';
+      `<p class="text-red-600">⚠️ Error: ${err.message}</p>`;
     document.getElementById('currentAddress').classList.remove('hidden');
+  } finally {
+    isLoading = false;
+    btn.disabled = false;
+    btn.textContent = 'Generar Dirección';
   }
+}
+
+function escapeHtml(text) {
+  if (typeof text !== 'string') return String(text);
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function displayAddress(data) {
@@ -89,21 +149,8 @@ function displayAddress(data) {
       const original = btn.textContent;
       btn.textContent = '¡Copiado!';
       setTimeout(() => btn.textContent = original, 2000);
-    }).catch(err => {
-      console.error('No se pudo copiar:', err);
     });
   };
-}
-
-// Escapar HTML para seguridad
-function escapeHtml(text) {
-  if (typeof text !== 'string') return String(text);
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
 
 function addToHistory(addressData) {
@@ -134,8 +181,11 @@ function renderHistory() {
   `).join('');
 }
 
-// Evento
-document.getElementById('generateBtn').addEventListener('click', generateAddress);
-
 // Inicializar
+document.getElementById('generateBtn').addEventListener('click', generateAddress);
 renderHistory();
+
+// Cargar inglés por defecto al inicio (opcional)
+// window.addEventListener('load', () => {
+//   document.getElementById('countrySelect').value = 'en';
+// });
