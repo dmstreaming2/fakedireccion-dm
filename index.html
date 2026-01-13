@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Generador de Direcciones Falsas</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>🌍 Generador de Direcciones por País</h1>
+  <select id="countrySelect">
+    <option value="es">España</option>
+    <option value="en">Estados Unidos</option>
+    <option value="fr">Francia</option>
+    <option value="de">Alemania</option>
+    <option value="ja">Japón</option>
+    <!-- Puedes añadir más -->
+  </select>
+  <button id="generateBtn">Generar Dirección</button>
+  <div id="addressOutput"></div>
+
+  <!-- Importar Faker.js desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@faker-js/faker@8.4.1/dist/faker.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
